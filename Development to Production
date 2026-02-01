@@ -1,0 +1,100 @@
+server {
+    listen 80;
+    server_name 98.88.31.96;
+
+    root /var/www/devtinder/frontend/dist;
+    index index.html;
+
+    # Frontend
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API
+    location /api/ {
+        proxy_pass http://localhost:3000/;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+Enable site
+sudo ln -s /etc/nginx/sites-available/devtinder /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+Move Frontend Build to NGINX Folder
+sudo mkdir -p /var/www/devtinder/frontend
+sudo cp -r dist /var/www/devtinder/frontend/
+sudo chown -R www-data:www-data /var/www/devtinder
+
+Frontend API Calls (FINAL FIX)
+❌ DON’T use IP or localhost
+axios.get("http://98.88.31.96:3000/api/login");
+
+✅ USE RELATIVE API
+axios.get("/api/login");
+Why?
+Works locally
+Works in production
+Works with Nginx proxy
+🔥 This is production-grade
+
+7️⃣ Final URLs (Expected Result)
+| Service  | URL                             |
+| -------- | ------------------------------- |
+| Frontend | `http://98.88.31.96`            |
+| Backend  | `http://98.88.31.96/api/health` |
+
+8️⃣ Security Group (Production)
+| Port                                    | Purpose |
+| --------------------------------------- | ------- |
+| 80                                      | HTTP    |
+| 22                                      | SSH     |
+| ❌ Remove 5173 & 3000 from public access |         |
+
+From your built file (index-BNUq3tIu.js), Axios is creating an XHR request with an invalid URL
+
+🔥 ROOT CAUSE (THIS IS THE REAL ISSUE)
+Your frontend build is still using:
+❌ localhost
+❌ undefined
+❌ empty string
+❌ or a malformed env variable
+So Axios ends up doing something like:
+xhr.open("GET", "undefined/api/login")
+➡️ Browser throws Invalid URL
+➡️ Nginx returns 404 because the request never matches /api
+✅ THE CORRECT PRODUCTION RULE (IMPORTANT)
+
+In production, when using Nginx reverse proxy, you must:
+❗ NOT use VITE_API_URL at all
+❗ NOT use IPs
+❗ NOT use localhost
+You must use relative URLs only.
+
+✅ CORRECT (production-safe)
+axios.get("/api/login");
+Same for POST:
+axios.post("/api/auth/login", data);
+
+✅ This works because:
+Browser calls http://98.88.31.96/api/...
+Nginx proxies /api → localhost:3000
+
+3️⃣ Rebuild frontend (MANDATORY)
+After fixing API paths:
+rm -rf dist
+npm run build
+Then copy again:
+sudo rm -rf /var/www/devtinder/frontend/dist
+sudo cp -r dist /var/www/devtinder/frontend/
+sudo systemctl restart nginx
+
+/api/login → localhost:3000/api/login
+https://chatgpt.com/share/697ef178-61cc-8004-b698-570b618702aa
