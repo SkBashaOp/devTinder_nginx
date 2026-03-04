@@ -42,6 +42,22 @@ Nginx owns the files
 Nginx can:
 
 read frontend files
+
+
+
+rm -rf dist
+git pull
+npm run build
+sudo rm -rf /var/www/devtinder
+sudo mkdir -p /var/www/devtinder
+sudo cp -r dist/* /var/www/devtinder
+sudo chown -R www-data:www-data /var/www/devtinder
+sudo systemctl start nginx
+sudo systemctl restart nginx
+sudo systemctl stop nginx
+
+pm2 start npm -- start
+
 serve JS/CSS
 proxy API requests
 ✅ Everything works smoothly
